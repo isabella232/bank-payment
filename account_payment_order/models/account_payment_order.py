@@ -18,13 +18,16 @@ class AccountPaymentOrder(models.Model):
     name = fields.Char(
         string='Number', readonly=True, copy=False)  # v8 field : name
     payment_mode_id = fields.Many2one(
-        'account.payment.mode', 'Payment Method', required=True,
+        'account.payment.mode', 'Payment Mode', required=True,
         ondelete='restrict', track_visibility='onchange',
         readonly=True, states={'draft': [('readonly', False)]})
     payment_type = fields.Selection([
         ('inbound', 'Inbound'),
         ('outbound', 'Outbound'),
         ], string='Payment Type', readonly=True, required=True)
+    payment_method_id = fields.Many2one(
+        'account.payment.method', related='payment_mode_id.payment_method_id',
+        readonly=True, store=True)
     company_id = fields.Many2one(
         related='payment_mode_id.company_id', store=True, readonly=True)
     company_currency_id = fields.Many2one(
@@ -210,7 +213,7 @@ class AccountPaymentOrder(models.Model):
             # Create the bank payment lines from the payment lines
             group_paylines = {}  # key = hashcode
             for payline in order.payment_line_ids:
-                payline.check_payment_line()
+                payline.draft2open_payment_line_check()
                 # Compute requested payment date
                 if order.date_prefered == 'due':
                     requested_date = payline.ml_maturity_date or today
@@ -271,37 +274,42 @@ class AccountPaymentOrder(models.Model):
     def generate_payment_file(self):
         """Returns (payment file as string, filename)"""
         self.ensure_one()
-        raise UserError(_(
-            "No handler for this payment method. Maybe you haven't "
-            "installed the related Odoo module."))
+        if self.payment_method_id.code == 'manual':
+            return (False, False)
+        else:
+            raise UserError(_(
+                "No handler for this payment method. Maybe you haven't "
+                "installed the related Odoo module."))
 
     @api.multi
     def open2generated(self):
         self.ensure_one()
         payment_file_str, filename = self.generate_payment_file()
-        attachment = self.env['ir.attachment'].create({
-            'res_model': 'account.payment.order',
-            'res_id': self.id,
-            'name': filename,
-            'datas': payment_file_str.encode('base64'),
-            'datas_fname': filename,
-            })
+        action = {}
+        if payment_file_str and filename:
+            attachment = self.env['ir.attachment'].create({
+                'res_model': 'account.payment.order',
+                'res_id': self.id,
+                'name': filename,
+                'datas': payment_file_str.encode('base64'),
+                'datas_fname': filename,
+                })
+            simplified_form_view = self.env.ref(
+                'account_payment_order.view_attachment_simplified_form')
+            action = {
+                'name': _('Payment File'),
+                'view_mode': 'form',
+                'view_id': simplified_form_view.id,
+                'res_model': 'ir.attachment',
+                'type': 'ir.actions.act_window',
+                'target': 'current',
+                'res_id': attachment.id,
+                }
         self.write({
             'date_generated': fields.Date.context_today(self),
             'state': 'generated',
             'generated_user_id': self._uid,
             })
-        simplified_form_view = self.env.ref(
-            'account_payment_order.view_attachment_simplified_form')
-        action = {
-            'name': _('Payment File'),
-            'view_mode': 'form',
-            'view_id': simplified_form_view.id,
-            'res_model': 'ir.attachment',
-            'type': 'ir.actions.act_window',
-            'target': 'current',
-            'res_id': attachment.id,
-            }
         return action
 
     @api.multi
