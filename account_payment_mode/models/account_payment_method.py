@@ -22,6 +22,8 @@ class AccountPaymentMethod(models.Model):
     display_name = fields.Char(
         compute='compute_display_name',
         store=True, string='Display Name')
+    payment_mode_ids = fields.One2many(
+        'account.payment.mode', 'payment_method_id', 'Payment modes')
 
     @api.multi
     @api.depends('code', 'name', 'payment_type')
