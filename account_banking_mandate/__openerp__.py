@@ -23,7 +23,7 @@
 {
     'name': 'Account Banking Mandate',
     'summary': 'Banking mandates',
-    'version': '0.1',
+    'version': '8.0.0.1.0',
     'license': 'AGPL-3',
     'author': "Compassion CH, "
               "Serv. Tecnol. Avanzados - Pedro M. Baeza, "
@@ -40,8 +40,11 @@
         'views/account_payment_view.xml',
         'views/res_partner_bank_view.xml',
         'data/mandate_reference_sequence.xml',
+        'data/report_paperformat.xml',
         'security/mandate_security.xml',
         'security/ir.model.access.csv',
+        'reports/account_banking_mandate_view.xml',
+        'reports/account_banking_mandate.xml',
     ],
     'demo': [],
     'test': ['test/banking_mandate.yml'],
