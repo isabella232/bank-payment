@@ -6,19 +6,53 @@ from lxml import etree
 
 from odoo import api, fields, models
 from odoo.fields import first
-from odoo.osv import orm
+
+from odoo.addons.base.models.ir_ui_view import (
+    transfer_field_to_modifiers,
+    transfer_modifiers_to_node,
+    transfer_node_to_modifiers,
+)
+
+
+def setup_modifiers(node, field=None, context=None, in_tree_view=False):
+    """ Processes node attributes and field descriptors to generate
+    the ``modifiers`` node attribute and set it on the provided node.
+
+    Alters its first argument in-place.
+
+    :param node: ``field`` node from an OpenERP view
+    :type node: lxml.etree._Element
+    :param dict field: field descriptor corresponding to the provided node
+    :param dict context: execution context used to evaluate node attributes
+    :param bool in_tree_view: triggers the ``column_invisible`` code
+                              path (separate from ``invisible``): in
+                              tree view there are two levels of
+                              invisibility, cell content (a column is
+                              present but the cell itself is not
+                              displayed) with ``invisible`` and column
+                              invisibility (the whole column is
+                              hidden) with ``column_invisible``.
+    :returns: nothing
+    """
+    modifiers = {}
+    if field is not None:
+        transfer_field_to_modifiers(field, modifiers)
+    transfer_node_to_modifiers(
+        node, modifiers, context=context, in_tree_view=in_tree_view
+    )
+    transfer_modifiers_to_node(modifiers, node)
 
 
 class AccountMoveLine(models.Model):
     _inherit = "account.move.line"
 
     partner_bank_id = fields.Many2one(
-        "res.partner.bank",
+        comodel_name="res.partner.bank",
         string="Partner Bank Account",
         help="Bank account on which we should pay the supplier",
     )
     bank_payment_line_id = fields.Many2one(
-        "bank.payment.line", string="Bank Payment Line", readonly=True, index=True
+        comodel_name="bank.payment.line", readonly=True, index=True
     )
     payment_line_ids = fields.One2many(
         comodel_name="account.payment.line",
@@ -26,29 +60,28 @@ class AccountMoveLine(models.Model):
         string="Payment lines",
     )
 
-    @api.multi
     def _prepare_payment_line_vals(self, payment_order):
         self.ensure_one()
         assert payment_order, "Missing payment order"
         aplo = self.env["account.payment.line"]
         # default values for communication_type and communication
         communication_type = "normal"
-        communication = self.move_id.ref or self.move_id.name
+        communication = self.ref or self.name
         # change these default values if move line is linked to an invoice
-        if self.invoice_id:
-            if self.invoice_id.reference_type != "none":
-                communication = self.invoice_id.reference
+        if self.move_id.is_invoice():
+            if self.move_id.reference_type != "none":
+                communication = self.move_id.ref
                 ref2comm_type = aplo.invoice_reference_type2communication_type()
-                communication_type = ref2comm_type[self.invoice_id.reference_type]
+                communication_type = ref2comm_type[self.move_id.reference_type]
             else:
                 if (
-                    self.invoice_id.type in ("in_invoice", "in_refund")
-                    and self.invoice_id.reference
+                    self.move_id.type in ("in_invoice", "in_refund")
+                    and self.move_id.ref
                 ):
-                    communication = self.invoice_id.reference
-                elif "out" in self.invoice_id.type:
+                    communication = self.move_id.ref
+                elif "out" in self.move_id.type:
                     # Force to only put invoice number here
-                    communication = self.invoice_id.number
+                    communication = self.move_id.name
         if self.currency_id:
             currency_id = self.currency_id.id
             amount_currency = self.amount_residual_currency
@@ -73,7 +106,6 @@ class AccountMoveLine(models.Model):
         }
         return vals
 
-    @api.multi
     def create_payment_line_from_move_line(self, payment_order):
         vals_list = []
         for mline in self:
@@ -101,7 +133,7 @@ class AccountMoveLine(models.Model):
                     elem = etree.Element(
                         "field", {"name": "balance", "readonly": "True"}
                     )
-                    orm.setup_modifiers(elem)
+                    setup_modifiers(elem)
                     placeholder.addprevious(elem)
             if not doc.xpath("//field[@name='amount_residual_currency']"):
                 for placeholder in doc.xpath("//field[@name='amount_currency']"):
@@ -109,14 +141,14 @@ class AccountMoveLine(models.Model):
                         "field",
                         {"name": "amount_residual_currency", "readonly": "True"},
                     )
-                    orm.setup_modifiers(elem)
+                    setup_modifiers(elem)
                     placeholder.addnext(elem)
             if not doc.xpath("//field[@name='amount_residual']"):
                 for placeholder in doc.xpath("//field[@name='amount_currency']"):
                     elem = etree.Element(
                         "field", {"name": "amount_residual", "readonly": "True"}
                     )
-                    orm.setup_modifiers(elem)
+                    setup_modifiers(elem)
                     placeholder.addnext(elem)
             # Remove credit and debit data - which is irrelevant in this case
             for elem in doc.xpath("//field[@name='debit']"):

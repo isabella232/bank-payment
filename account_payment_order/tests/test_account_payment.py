@@ -16,7 +16,7 @@ class TestAccountPayment(SavepointCase):
 
         # INSTANCES
         # Payment methods
-        cls.inbound_payment_method_01, cls.inbound_payment_method_02 = cls.payment_method_model.search(
+        cls.inbound_pm_01, cls.inbound_pm_02 = cls.payment_method_model.search(
             [("payment_type", "=", "inbound")], limit=2
         )
         cls.outbound_payment_method_01 = cls.payment_method_model.search(
@@ -27,23 +27,23 @@ class TestAccountPayment(SavepointCase):
             [("type", "=", "bank")], limit=1
         )
         cls.bank_journal.inbound_payment_method_ids = [
-            (6, 0, [cls.inbound_payment_method_01.id, cls.inbound_payment_method_02.id])
+            (6, 0, [cls.inbound_pm_01.id, cls.inbound_pm_02.id])
         ]
         cls.bank_journal.outbound_payment_method_ids = [
             (6, 0, [cls.outbound_payment_method_01.id])
         ]
 
     def test_account_payment_01(self):
-        self.assertFalse(self.inbound_payment_method_01.payment_order_only)
-        self.assertFalse(self.inbound_payment_method_02.payment_order_only)
+        self.assertFalse(self.inbound_pm_01.payment_order_only)
+        self.assertFalse(self.inbound_pm_02.payment_order_only)
         self.assertFalse(self.bank_journal.inbound_payment_order_only)
-        self.inbound_payment_method_01.payment_order_only = True
-        self.assertTrue(self.inbound_payment_method_01.payment_order_only)
-        self.assertFalse(self.inbound_payment_method_02.payment_order_only)
+        self.inbound_pm_01.payment_order_only = True
+        self.assertTrue(self.inbound_pm_01.payment_order_only)
+        self.assertFalse(self.inbound_pm_02.payment_order_only)
         self.assertFalse(self.bank_journal.inbound_payment_order_only)
-        self.inbound_payment_method_02.payment_order_only = True
-        self.assertTrue(self.inbound_payment_method_01.payment_order_only)
-        self.assertTrue(self.inbound_payment_method_02.payment_order_only)
+        self.inbound_pm_02.payment_order_only = True
+        self.assertTrue(self.inbound_pm_01.payment_order_only)
+        self.assertTrue(self.inbound_pm_02.payment_order_only)
         self.assertTrue(self.bank_journal.inbound_payment_order_only)
 
     def test_account_payment_02(self):
@@ -54,8 +54,8 @@ class TestAccountPayment(SavepointCase):
         self.assertTrue(self.bank_journal.outbound_payment_order_only)
 
     def test_account_payment_03(self):
-        self.assertFalse(self.inbound_payment_method_01.payment_order_only)
-        self.assertFalse(self.inbound_payment_method_02.payment_order_only)
+        self.assertFalse(self.inbound_pm_01.payment_order_only)
+        self.assertFalse(self.inbound_pm_02.payment_order_only)
         self.assertFalse(self.bank_journal.inbound_payment_order_only)
         new_account_payment = self.account_payment_model.new(
             {"journal_id": self.bank_journal.id, "payment_type": "inbound", "amount": 1}
@@ -73,10 +73,10 @@ class TestAccountPayment(SavepointCase):
         )
         self.assertTrue(payment_method_domain)
         payment_methods = self.payment_method_model.search(payment_method_domain)
-        self.assertIn(self.inbound_payment_method_01, payment_methods)
-        self.assertIn(self.inbound_payment_method_02, payment_methods)
+        self.assertIn(self.inbound_pm_01, payment_methods)
+        self.assertIn(self.inbound_pm_02, payment_methods)
         # Set one payment method of the bank journal 'payment order only'
-        self.inbound_payment_method_01.payment_order_only = True
+        self.inbound_pm_01.payment_order_only = True
         # check journals
         journal_res = new_account_payment._compute_journal_domain_and_types()
         journal_domain = journal_res.get("domain")
@@ -90,12 +90,12 @@ class TestAccountPayment(SavepointCase):
         )
         self.assertTrue(payment_method_domain)
         payment_methods = self.payment_method_model.search(payment_method_domain)
-        self.assertNotIn(self.inbound_payment_method_01, payment_methods)
-        self.assertIn(self.inbound_payment_method_02, payment_methods)
+        self.assertNotIn(self.inbound_pm_01, payment_methods)
+        self.assertIn(self.inbound_pm_02, payment_methods)
         # Set all payment methods of the bank journal 'payment order only'
-        self.inbound_payment_method_02.payment_order_only = True
-        self.assertTrue(self.inbound_payment_method_01.payment_order_only)
-        self.assertTrue(self.inbound_payment_method_02.payment_order_only)
+        self.inbound_pm_02.payment_order_only = True
+        self.assertTrue(self.inbound_pm_01.payment_order_only)
+        self.assertTrue(self.inbound_pm_02.payment_order_only)
         self.assertTrue(self.bank_journal.inbound_payment_order_only)
         # check journals
         journal_res = new_account_payment._compute_journal_domain_and_types()
@@ -110,5 +110,5 @@ class TestAccountPayment(SavepointCase):
         )
         self.assertTrue(payment_method_domain)
         payment_methods = self.payment_method_model.search(payment_method_domain)
-        self.assertNotIn(self.inbound_payment_method_01, payment_methods)
-        self.assertNotIn(self.inbound_payment_method_02, payment_methods)
+        self.assertNotIn(self.inbound_pm_01, payment_methods)
+        self.assertNotIn(self.inbound_pm_02, payment_methods)

@@ -6,7 +6,7 @@
 from datetime import date, timedelta
 
 from odoo.exceptions import UserError, ValidationError
-from odoo.tests.common import SavepointCase
+from odoo.tests.common import Form, SavepointCase
 
 
 class TestPaymentOrderInboundBase(SavepointCase):
@@ -17,19 +17,15 @@ class TestPaymentOrderInboundBase(SavepointCase):
         self.inbound_mode = self.env.ref(
             "account_payment_mode.payment_mode_inbound_dd1"
         )
-        self.invoice_line_account = (
-            self.env["account.account"]
-            .search(
-                [
-                    (
-                        "user_type_id",
-                        "=",
-                        self.env.ref("account.data_account_type_revenue").id,
-                    )
-                ],
-                limit=1,
-            )
-            .id
+        self.invoice_line_account = self.env["account.account"].search(
+            [
+                (
+                    "user_type_id",
+                    "=",
+                    self.env.ref("account.data_account_type_revenue").id,
+                )
+            ],
+            limit=1,
         )
         self.journal = self.env["account.journal"].search(
             [("type", "=", "bank")], limit=1
@@ -49,46 +45,27 @@ class TestPaymentOrderInboundBase(SavepointCase):
         )
         # Open invoice
         self.invoice = self._create_customer_invoice(self)
-        self.invoice.action_invoice_open()
+        self.invoice.action_post()
         # Add to payment order using the wizard
         self.env["account.invoice.payment.line.multi"].with_context(
-            active_model="account.invoice", active_ids=self.invoice.ids
+            active_model="account.move", active_ids=self.invoice.ids
         ).create({}).run()
 
     def _create_customer_invoice(self):
-        invoice_account = (
-            self.env["account.account"]
-            .search(
-                [
-                    (
-                        "user_type_id",
-                        "=",
-                        self.env.ref("account.data_account_type_receivable").id,
-                    )
-                ],
-                limit=1,
-            )
-            .id
-        )
-        invoice = self.env["account.invoice"].create(
-            {
-                "partner_id": self.env.ref("base.res_partner_4").id,
-                "account_id": invoice_account,
-                "type": "out_invoice",
-                "payment_mode_id": self.inbound_mode.id,
-            }
-        )
-        self.env["account.invoice.line"].create(
-            {
-                "product_id": self.env.ref("product.product_product_4").id,
-                "quantity": 1.0,
-                "price_unit": 100.0,
-                "invoice_id": invoice.id,
-                "name": "product that cost 100",
-                "account_id": self.invoice_line_account,
-            }
-        )
-        return invoice
+        with Form(
+            self.env["account.move"].with_context(default_type="out_invoice")
+        ) as invoice_form:
+            invoice_form.partner_id = self.env.ref("base.res_partner_4")
+            with invoice_form.invoice_line_ids.new() as invoice_line_form:
+                invoice_line_form.product_id = self.env.ref("product.product_product_4")
+                invoice_line_form.name = "product that cost 100"
+                invoice_line_form.quantity = 1
+                invoice_line_form.price_unit = 100.0
+                invoice_line_form.account_id = self.invoice_line_account
+        invoice = invoice_form.save()
+        invoice_form = Form(invoice)
+        invoice_form.payment_mode_id = self.inbound_mode
+        return invoice_form.save()
 
 
 class TestPaymentOrderInbound(TestPaymentOrderInboundBase):
