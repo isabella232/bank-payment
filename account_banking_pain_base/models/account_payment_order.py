@@ -340,7 +340,7 @@ class AccountPaymentOrder(models.Model):
                 % self.company_id.name)
         return True
 
-    @api.model
+    @api.multi
     def generate_party_agent(
             self, parent_node, party_type, order, partner_bank, gen_args,
             bank_line=None):
@@ -352,6 +352,7 @@ class AccountPaymentOrder(models.Model):
         sepa-credit-transfer/iban-and-bic/
         In some localization (l10n_ch_sepa for example), they need the
         bank_line argument"""
+        self.ensure_one()
         assert order in ('B', 'C'), "Order can be 'B' or 'C'"
         if partner_bank.bank_bic:
             party_agent = etree.SubElement(parent_node, '%sAgt' % party_type)
@@ -437,7 +438,7 @@ class AccountPaymentOrder(models.Model):
 
         return True
 
-    @api.model
+    @api.multi
     def generate_party_block(
             self, parent_node, party_type, order, partner_bank, gen_args,
             bank_line=None):
@@ -445,6 +446,7 @@ class AccountPaymentOrder(models.Model):
         This code is mutualized between TRF and DD
         In some localization (l10n_ch_sepa for example), they need the
         bank_line argument"""
+        self.ensure_one()
         assert order in ('B', 'C'), "Order can be 'B' or 'C'"
         party_type_label = _("Partner name")
         if party_type == 'Cdtr':
