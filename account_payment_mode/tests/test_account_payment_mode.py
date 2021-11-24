@@ -103,7 +103,7 @@ class TestAccountPaymentMode(TransactionCase):
                     "company_id": self.company.id,
                 }
             )
-        self.journal_c1.outbound_payment_method_ids = False
+        self.journal_c1.outbound_payment_method_line_ids = False
         with self.assertRaises(ValidationError):
             self.payment_mode_model.create(
                 {
@@ -114,7 +114,7 @@ class TestAccountPaymentMode(TransactionCase):
                     "fixed_journal_id": self.journal_c1.id,
                 }
             )
-        self.journal_c1.inbound_payment_method_ids = False
+        self.journal_c1.inbound_payment_method_line_ids = False
         with self.assertRaises(ValidationError):
             self.payment_mode_model.create(
                 {
