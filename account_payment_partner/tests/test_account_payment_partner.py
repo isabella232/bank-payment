@@ -5,10 +5,10 @@
 from odoo import _, fields
 from odoo.exceptions import UserError, ValidationError
 from odoo.fields import Date
-from odoo.tests.common import Form, SavepointCase
+from odoo.tests.common import Form, TransactionCase
 
 
-class TestAccountPaymentPartner(SavepointCase):
+class TestAccountPaymentPartner(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -105,7 +105,7 @@ class TestAccountPaymentPartner(SavepointCase):
         cls.customer_payment_mode = cls.payment_mode_model.create(
             {
                 "name": "Customers to Bank 1",
-                "bank_account_link": "fixed",
+                "bank_account_link": "variable",
                 "payment_method_id": cls.manual_in.id,
                 "company_id": cls.company.id,
                 "fixed_journal_id": cls.journal_c1.id,
@@ -405,7 +405,13 @@ class TestAccountPaymentPartner(SavepointCase):
                     "active_model": "account.move",
                 }
             )
-            .create({"refund_method": "refund", "reason": "reason test create"})
+            .create(
+                {
+                    "refund_method": "refund",
+                    "reason": "reason test create",
+                    "journal_id": invoice.journal_id.id,
+                }
+            )
         )
         refund_invoice = self.move_model.browse(
             refund_invoice_wizard.reverse_moves()["res_id"]
@@ -433,7 +439,13 @@ class TestAccountPaymentPartner(SavepointCase):
                     "active_model": "account.move",
                 }
             )
-            .create({"refund_method": "refund", "reason": "reason test create"})
+            .create(
+                {
+                    "refund_method": "refund",
+                    "reason": "reason test create",
+                    "journal_id": invoice.journal_id.id,
+                }
+            )
         )
         refund_invoice = self.move_model.browse(
             refund_invoice_wizard.reverse_moves()["res_id"]
